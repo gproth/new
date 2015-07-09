@@ -9,7 +9,7 @@ cachedir = "projects/cache/"
 datasource_id = int(sys.argv[1])
 
 launchpad = Launchpad.login_with('Data Gathering', 'production', cachedir)
-db = MySQLdb.connect(host="grid6.cs.elon.edu", user="groth", passwd="Monsterhunter12", db="test", use_unicode=True, charset = "utf8")
+db = MySQLdb.connect(host="host", user="user", passwd="pass", db="test", use_unicode=True, charset = "utf8")
 cursor = db.cursor()
 cursor.execute('SET NAMES utf8mb4')
 cursor.execute('SET CHARACTER SET utf8mb4')
