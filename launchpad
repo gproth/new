@@ -1,0 +1,216 @@
+
+from launchpadlib.launchpad import Launchpad
+import time
+import datetime
+import sys
+import MySQLdb
+
+cachedir = "projects/cache/"
+datasource_id = int(sys.argv[1])
+
+launchpad = Launchpad.login_with('Data Gathering', 'production', cachedir)
+db = MySQLdb.connect(host="grid6.cs.elon.edu", user="groth", passwd="Monsterhunter12", db="test", use_unicode=True, charset = "utf8")
+cursor = db.cursor()
+cursor.execute('SET NAMES utf8mb4')
+cursor.execute('SET CHARACTER SET utf8mb4')
+cursor.execute('SET character_set_connection=utf8mb4')
+
+def getProjectNames():
+    result = []
+    total_projects = len(launchpad.projects)
+    try:
+        
+        for project in launchpad.projects:
+            result.append(project.name)
+            print 'Getting project list.'
+            print 'Currently getting project '+str(len(result))+' of '+str(total_projects)+'.'
+            print project.self_link
+            #if project.name != "girden" and project.name!= "indexu" and project.name!="ntt-emc-openstack" and project.name!="woodland" and project.name!="hollandguide":
+            #    parseProjects(project)
+            #if project.name != "indexu":
+            #    parseSeries(project)
+            #    parseMilestones(project)
+            #    parseLicenses(project)
+            #    parseBugs(project)
+            #    parseReleases(project)
+            #if project.programming_language != None:
+            #    parseLanguages(project)
+            
+        return result
+    except KeyboardInterrupt:
+        cursor.close()
+        db.close()
+        sys.exit(1)
+    except Exception as e:
+        print e
+        cursor.close()
+        db.close()
+        sys.exit(1)
+  #edit      
+def parseProjects(p):
+    isActive = 0
+    isDue = 0
+    qualify = 0
+    supervisor = ""
+    track = ""
+    development = ""
+    driver = ""
+    owner = ""
+    group = ""
+    registrant = ""
+    contact = ""
+    translation = ""
+    if p.active == True:
+        isActive = 1
+    if p.commercial_subscription_is_due == True:
+        isDue = 1
+    if p.qualifies_for_free_hosting == True:
+        qualify = 1
+    if testNone(p.bug_supervisor) == False:
+        supervisor = p.bug_supervisor.name
+    if testNone(p.bug_tracker)== False:
+        track = p.bug_tracker.name
+    if testNone(p.development_focus) == False:
+        development = p.development_focus.name
+    if testNone(p.driver) == False:
+        driver = p.driver.name
+    if testNone(p.owner) == False:
+        owner = p.owner.name
+    if testNone(p.project_group) == False:
+        group = p.project_group.name
+    if testNone(p.registrant) == False:
+        registrant = p.registrant.name
+    if testNone(p.security_contact) == False:
+        contact = p.security_contact.name
+    if testNone(p.translation_focus) == False:
+        translation = p.translation_focus.name
+    try:
+        cursor.execute("INSERT INTO `lpd_projects`(`datasource_id`, `name`, \
+        `display_name`, `web_link`, `active`, `bug_reported_acknowledgement`, \
+        `bug_reporting_guidelines`, `commercial_subscription_is_due`, \
+        `date_created`, `date_next_suggest_packaging`, `description`, \
+        `download_url`, `freshmeat_project`, `homepage_url`, `license_info`, \
+        `qualifies_for_free_hosting`, `screenshots_url`, `sourceforge_project`,\
+        `summary`, `title`, `wiki_url`, `bug_supervisor`, `bug_tracker`, \
+        `development_focus`, `driver`, `owner`, `project_group`, `registrant`,\
+        `security_contact`, `translation_focus`, `last_updated`) \
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\
+        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
+        (datasource_id, p.name, p.display_name, p.web_link, isActive, 
+        p.bug_reported_acknowledgement, p.bug_reporting_guidelines, isDue,
+        p.date_created, p.date_next_suggest_packaging, p.description, p.download_url,
+        p.freshmeat_project, p.homepage_url, p.license_info, qualify, p.screenshots_url,
+        p.sourceforge_project, p.summary, p.title, p.wiki_url, supervisor, track,
+        development, driver, owner, group, registrant, contact, translation, 
+        datetime.datetime.now()))
+    except MySQLdb.Error as error:
+        print(error)
+        db.rollback()
+
+        
+#issue with method call        
+def parseReleases(p):
+    print 'release'
+    for release in p.releases.entries:
+        try:
+            cursor.execute("INSERT INTO `lpd_releases`(`datasource_id`, `display_name`\
+            , `title`, `milestone`, `version`, `project_name`, `release_notes`, \
+            `changelog`, `date_created`, `date_released`, `last_updated`)\
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
+            (datasource_id, release['display_name'], release['title'], 
+            "1.0", 
+            release["version"], p.name, release["release_notes"], release["changelog"], p.date_created,
+            release["date_released"], datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+            
+
+    #stopped early IndexU
+def parseSeries(p):
+    isActive=0
+    if p.active == True:
+        isActive = 1
+    for series in p.series.entries:
+        try:
+            cursor.execute("INSERT INTO `lpd_series`(`datasource_id`, `display_name`\
+            , `title`, `status`, `name`, `project_name`, `bug_reported_acknowledgement`\
+            , `bug_reporting_guidelines`, `date_created`, `active`, `summary`, `last_updated`)\
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
+            (datasource_id, series['display_name'], series['title'], series['status'], 
+            series['name'], p.name, series['bug_reported_acknowledgement'], 
+            series['bug_reporting_guidelines'], p.date_created,isActive,
+            p.summary,datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+            
+#    #complete
+def parseLanguages(p):
+    
+    print 'lang'
+    langs = p.programming_language.split(',')
+    for language in langs:
+        try:
+            cursor.execute("INSERT INTO `lpd_programming_languages`\
+            (`datasource_id`, `name`, `programming_language`, `last_updated`)\
+            VALUES (%s,%s,%s,%s)", 
+            (datasource_id, p.name, language, datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+            
+  #complete        
+def parseBugs(p):
+    for bug_tag in p.official_bug_tags:
+        try:
+            cursor.execute("INSERT INTO `lpd_official_bug_tags`\
+            (`datasource_id`, `name`, `official_bug_tag`, `last_updated`)\
+            VALUES (%s,%s,%s,%s)", 
+            (datasource_id, p.name, bug_tag, datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+            
+    #stopped at 31713 indexU
+def parseMilestones(p):
+    isActive=0
+    if p.active == True:
+        isActive = 1
+    for milestone in p.all_milestones.entries:
+        try:
+            cursor.execute("INSERT INTO `lpd_milestones`\
+            (`datasource_id`, `name`, `project_name`, `title`, `is_active`, \
+            `summary`, `code_name`, `date_targeted`, `last_updated`)\
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", 
+            (datasource_id, p.name, p.name, milestone['title']
+            , isActive, milestone['summary'], milestone['code_name'],
+            milestone['date_targeted'], datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+#            
+# #complete       
+def parseLicenses(p):
+    print "l"
+    for license in p.licenses:
+        try:
+            cursor.execute("INSERT INTO `lpd_licenses`(`datasource_id`, `name`, \
+            `license`, `last_updated`)\
+            VALUES (%s,%s,%s,%s)", 
+            (datasource_id, p.name, license, datetime.datetime.now()))
+        except MySQLdb.Error as error:
+            print(error)
+            db.rollback()
+
+def testNone(ob):
+    isNone = True
+    if ob != None:
+        isNone = False
+    return isNone
+
+nameList = getProjectNames()
+
+
+cursor.close()
+db.close()
